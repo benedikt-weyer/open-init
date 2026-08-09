@@ -39,6 +39,11 @@ ldd "$init_binary" | awk '
     [[ -e "$staging_dir$library" ]] || install -Dm755 "$library" "$staging_dir$library"
 done
 
+# pam_unix invokes this helper after greetd drops to the greeter account.
+# Nix store files cannot carry setuid bits, so add the required guest-only
+# privilege after copying the runtime closure.
+find "$staging_dir/nix/store" -type f -name unix_chkpwd -exec chmod 4755 {} +
+
 mkdir -p "$staging_dir"/{proc,sys,dev/pts,run,tmp}
 printf '%s\n' 'open-init: creating compressed initramfs archive' >&2
 (
