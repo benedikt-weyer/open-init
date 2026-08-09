@@ -1,1 +1,10 @@
 /target
+/.cache
+/guest-root/nix
+/guest-root/usr
+/guest-root/etc/group
+/guest-root/etc/nsswitch.conf
+/guest-root/etc/passwd
+/guest-root/etc/shadow
+/guest-root/etc/pam.d
+/guest-root/home
