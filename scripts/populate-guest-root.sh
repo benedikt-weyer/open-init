@@ -21,8 +21,9 @@ if [[ "${FORCE_POPULATE:-0}" != "1" &&
     -x "$guest_root/usr/bin/nix-daemon" &&
     -x "$guest_root/usr/bin/ip" &&
     -x "$guest_root/usr/bin/dbus-daemon" &&
+    -x "$guest_root/usr/bin/busybox" &&
     -x "$guest_root/bin/sh" &&
-    -f "$guest_root/.open-init-populated-v12" &&
+    -f "$guest_root/.open-init-populated-v13" &&
     -d "$guest_root/nix/store" ]]; then
     printf '%s\n' 'guest-root already populated'
     exit 0
@@ -47,7 +48,8 @@ nix build --no-link \
     nixpkgs#nix \
     nixpkgs#cacert \
     nixpkgs#iproute2 \
-    nixpkgs#dbus >&2
+    nixpkgs#dbus \
+    nixpkgs#busybox >&2
 
 greetd="$(nix eval --raw nixpkgs#greetd.outPath)"
 tuigreet="$(nix eval --raw nixpkgs#tuigreet.outPath)"
@@ -66,6 +68,7 @@ nix_pkg="$(nix eval --raw nixpkgs#nix.outPath)"
 cacert="$(nix eval --raw nixpkgs#cacert.outPath)"
 iproute2="$(nix eval --raw nixpkgs#iproute2.outPath)"
 dbus="$(nix eval --raw nixpkgs#dbus.outPath)"
+busybox="$(nix eval --raw nixpkgs#busybox.outPath)"
 
 if [[ -d "$guest_root/nix" ]]; then
     chmod -R u+w "$guest_root/nix"
@@ -81,7 +84,7 @@ mkdir -p "$guest_root/nix/store" "$guest_root/nix/var/nix" "$guest_root/usr/bin"
 nix-store -qR "$greetd" "$tuigreet" "$niri" "$pam" "$bash" "$seatd" "$eudev" \
     "$shadow_su" "$sudo" \
     "$cursor_theme" "$wofi" "$alacritty" "$mesa" \
-    "$nix_pkg" "$cacert" "$iproute2" "$dbus" |
+    "$nix_pkg" "$cacert" "$iproute2" "$dbus" "$busybox" |
     sort -u |
     while IFS= read -r store_path; do
         cp -a "$store_path" "$guest_root/nix/store/"
@@ -110,6 +113,17 @@ done
 ln -sfn "$iproute2/bin/ip" "$guest_root/usr/bin/ip"
 for binary in "$dbus"/bin/*; do
     ln -sfn "$binary" "$guest_root/usr/bin/$(basename "$binary")"
+done
+
+# busybox fills in any standard utility not already provided by a more
+# specific package above; "sh" stays bash (see guest_root/bin/sh) so it is
+# skipped here.
+for binary in "$busybox"/bin/*; do
+    name="$(basename "$binary")"
+    [[ "$name" == "sh" ]] && continue
+    target="$guest_root/usr/bin/$name"
+    [[ -e "$target" || -L "$target" ]] && continue
+    ln -sfn "$binary" "$target"
 done
 ln -sfn "$cacert/etc/ssl/certs/ca-bundle.crt" \
     "$guest_root/etc/ssl/certs/ca-certificates.crt"
@@ -229,5 +243,5 @@ binds {
 }
 EOF
 
-touch "$guest_root/.open-init-populated-v12"
+touch "$guest_root/.open-init-populated-v13"
 printf '%s\n' "guest-root populated; log in as 'open' with an empty password"

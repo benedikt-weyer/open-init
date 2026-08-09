@@ -4,7 +4,10 @@
 linked against glibc, mounts the kernel filesystems, reaps orphaned processes,
 and restarts `open-service-manager` if it exits. The service manager
 supervises `greetd`; the greeter launches `niri-session` after a successful
-login.
+login. `busybox` provides the standard set of Unix utilities (`ls`, `grep`,
+`mount`, ...) under `/usr/bin`, falling back only where a more specific
+package (e.g. `sudo`, `ip`) already supplies the same name; `/bin/sh` stays
+`bash`.
 
 ## Services
 
@@ -38,7 +41,8 @@ With Nix installed, run:
 ```
 
 The runner automatically downloads the Nix closures for glibc, greetd,
-tuigreet, niri, Mesa, and PAM; copies them to `guest-root/nix/store`; and
+tuigreet, niri, Mesa, PAM, D-Bus, and busybox; copies them to
+`guest-root/nix/store`; and
 creates the users and PAM configuration. The supplied
 [`guest-root/etc/greetd/config.toml`](guest-root/etc/greetd/config.toml) tells
 greetd to authenticate through tuigreet and start niri for the authenticated
