@@ -26,8 +26,13 @@ if ! command -v flex >/dev/null || ! command -v bison >/dev/null || ! command -v
         --command bash "${BASH_SOURCE[0]}" "$@"
 fi
 
+command -v flock >/dev/null ||
+    { printf 'flock is required to serialize Linux kernel builds\n' >&2; exit 1; }
+mkdir -p "$cache_dir"
+exec 9>"$cache_dir/linux-build.lock"
+flock 9
+
 if [[ ! -d "$linux_dir/.git" ]]; then
-    mkdir -p "$cache_dir"
     git clone --depth=1 "$kernel_repo" "$linux_dir" >&2
 fi
 
