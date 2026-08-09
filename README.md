@@ -72,3 +72,15 @@ each launch so changes to the init program or guest root take effect.
 QEMU opens a GTK display using virtio-gpu with OpenGL and mirrors the serial
 console to the invoking terminal. A working niri session needs host QEMU OpenGL
 support and matching guest Mesa/virtio GPU libraries in `guest-root`.
+
+## Clipboard sharing
+
+`open-clipboard-agent` bridges the host clipboard and the guest niri session
+over a dedicated virtio-serial port (`org.open-init.clipboard`), since QEMU's
+GTK display does not share the clipboard on its own and `spice-vdagent` only
+supports X11. `run-qemu.sh` starts the host half (connecting to the port's
+QEMU-owned UNIX socket, using `wl-copy`/`wl-paste` by default — override with
+`OPEN_INIT_CLIPBOARD_COPY_CMD`/`OPEN_INIT_CLIPBOARD_PASTE_CMD`, e.g. for an
+X11 host); niri's `spawn-at-startup` starts the guest half against
+`/dev/virtio-ports/org.open-init.clipboard`. Both directions poll for
+changes and forward them; the bridge is text-only.

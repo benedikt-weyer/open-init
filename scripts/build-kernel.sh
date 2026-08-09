@@ -6,7 +6,7 @@ cache_dir="${OPEN_INIT_CACHE_DIR:-$root_dir/.cache}"
 linux_dir="$cache_dir/linux"
 build_dir="$cache_dir/linux-build"
 kernel_image="$build_dir/arch/x86/boot/bzImage"
-config_version=4
+config_version=5
 config_stamp="$build_dir/.open-init-kernel-config-version"
 kernel_repo="${LINUX_REPOSITORY:-https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git}"
 
@@ -61,6 +61,7 @@ make -C "$linux_dir" O="$build_dir" x86_64_defconfig >&2
     --enable INPUT \
     --enable INPUT_EVDEV \
     --enable VIRTIO_INPUT \
+    --enable VIRTIO_CONSOLE \
     --enable NAMESPACES \
     --enable UTS_NS \
     --enable IPC_NS \

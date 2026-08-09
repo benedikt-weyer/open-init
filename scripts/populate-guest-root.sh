@@ -22,8 +22,9 @@ if [[ "${FORCE_POPULATE:-0}" != "1" &&
     -x "$guest_root/usr/bin/ip" &&
     -x "$guest_root/usr/bin/dbus-daemon" &&
     -x "$guest_root/usr/bin/busybox" &&
+    -x "$guest_root/usr/bin/wl-copy" &&
     -x "$guest_root/bin/sh" &&
-    -f "$guest_root/.open-init-populated-v13" &&
+    -f "$guest_root/.open-init-populated-v14" &&
     -d "$guest_root/nix/store" ]]; then
     printf '%s\n' 'guest-root already populated'
     exit 0
@@ -49,7 +50,8 @@ nix build --no-link \
     nixpkgs#cacert \
     nixpkgs#iproute2 \
     nixpkgs#dbus \
-    nixpkgs#busybox >&2
+    nixpkgs#busybox \
+    nixpkgs#wl-clipboard >&2
 
 greetd="$(nix eval --raw nixpkgs#greetd.outPath)"
 tuigreet="$(nix eval --raw nixpkgs#tuigreet.outPath)"
@@ -69,6 +71,7 @@ cacert="$(nix eval --raw nixpkgs#cacert.outPath)"
 iproute2="$(nix eval --raw nixpkgs#iproute2.outPath)"
 dbus="$(nix eval --raw nixpkgs#dbus.outPath)"
 busybox="$(nix eval --raw nixpkgs#busybox.outPath)"
+wl_clipboard="$(nix eval --raw nixpkgs#wl-clipboard.outPath)"
 
 if [[ -d "$guest_root/nix" ]]; then
     chmod -R u+w "$guest_root/nix"
@@ -84,7 +87,7 @@ mkdir -p "$guest_root/nix/store" "$guest_root/nix/var/nix" "$guest_root/usr/bin"
 nix-store -qR "$greetd" "$tuigreet" "$niri" "$pam" "$bash" "$seatd" "$eudev" \
     "$shadow_su" "$sudo" \
     "$cursor_theme" "$wofi" "$alacritty" "$mesa" \
-    "$nix_pkg" "$cacert" "$iproute2" "$dbus" "$busybox" |
+    "$nix_pkg" "$cacert" "$iproute2" "$dbus" "$busybox" "$wl_clipboard" |
     sort -u |
     while IFS= read -r store_path; do
         cp -a "$store_path" "$guest_root/nix/store/"
@@ -114,6 +117,8 @@ ln -sfn "$iproute2/bin/ip" "$guest_root/usr/bin/ip"
 for binary in "$dbus"/bin/*; do
     ln -sfn "$binary" "$guest_root/usr/bin/$(basename "$binary")"
 done
+ln -sfn "$wl_clipboard/bin/wl-copy" "$guest_root/usr/bin/wl-copy"
+ln -sfn "$wl_clipboard/bin/wl-paste" "$guest_root/usr/bin/wl-paste"
 
 # busybox fills in any standard utility not already provided by a more
 # specific package above; "sh" stays bash (see guest_root/bin/sh) so it is
@@ -236,6 +241,8 @@ environment {
     NIX_SSL_CERT_FILE "/etc/ssl/certs/ca-certificates.crt"
 }
 
+spawn-at-startup "/usr/bin/open-clipboard-agent" "--transport" "device" "--path" "/dev/virtio-ports/org.open-init.clipboard"
+
 binds {
     Super+Space { spawn "wofi" "--show" "drun"; }
     Super+C { spawn "alacritty"; }
@@ -243,5 +250,5 @@ binds {
 }
 EOF
 
-touch "$guest_root/.open-init-populated-v13"
+touch "$guest_root/.open-init-populated-v14"
 printf '%s\n' "guest-root populated; log in as 'open' with an empty password"
