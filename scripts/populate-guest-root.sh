@@ -10,8 +10,9 @@ command -v nix >/dev/null ||
 if [[ "${FORCE_POPULATE:-0}" != "1" &&
     -x "$guest_root/usr/bin/greetd" &&
     -x "$guest_root/usr/bin/niri-session" &&
+    -x "$guest_root/usr/bin/seatd" &&
     -x "$guest_root/bin/sh" &&
-    -f "$guest_root/.open-init-populated-v2" &&
+    -f "$guest_root/.open-init-populated-v3" &&
     -d "$guest_root/nix/store" ]]; then
     printf '%s\n' 'guest-root already populated'
     exit 0
@@ -25,6 +26,7 @@ nix build --no-link \
     nixpkgs#niri \
     nixpkgs#linux-pam \
     nixpkgs#bash \
+    nixpkgs#seatd \
     nixpkgs#mesa >&2
 
 greetd="$(nix eval --raw nixpkgs#greetd.outPath)"
@@ -32,6 +34,7 @@ tuigreet="$(nix eval --raw nixpkgs#tuigreet.outPath)"
 niri="$(nix eval --raw nixpkgs#niri.outPath)"
 pam="$(nix eval --raw nixpkgs#linux-pam.outPath)"
 bash="$(nix eval --raw nixpkgs#bash.outPath)"
+seatd="$(nix eval --raw nixpkgs#seatd.outPath)"
 mesa="$(nix eval --raw nixpkgs#mesa.outPath)"
 
 if [[ -d "$guest_root/nix" ]]; then
@@ -41,7 +44,7 @@ rm -rf "$guest_root/nix"
 mkdir -p "$guest_root/nix/store" "$guest_root/usr/bin" "$guest_root/bin" \
     "$guest_root/etc/greetd" "$guest_root/etc/pam.d" "$guest_root/home/open"
 
-nix-store -qR "$greetd" "$tuigreet" "$niri" "$pam" "$bash" "$mesa" |
+nix-store -qR "$greetd" "$tuigreet" "$niri" "$pam" "$bash" "$seatd" "$mesa" |
     sort -u |
     while IFS= read -r store_path; do
         cp -a "$store_path" "$guest_root/nix/store/"
@@ -51,6 +54,7 @@ ln -sfn "$greetd/bin/greetd" "$guest_root/usr/bin/greetd"
 ln -sfn "$tuigreet/bin/tuigreet" "$guest_root/usr/bin/tuigreet"
 ln -sfn "$niri/bin/niri" "$guest_root/usr/bin/niri"
 ln -sfn "$niri/bin/niri-session" "$guest_root/usr/bin/niri-session"
+ln -sfn "$seatd/bin/seatd" "$guest_root/usr/bin/seatd"
 ln -sfn "$bash/bin/bash" "$guest_root/bin/sh"
 
 cat > "$guest_root/etc/passwd" <<'EOF'
@@ -61,6 +65,7 @@ EOF
 cat > "$guest_root/etc/group" <<'EOF'
 root:x:0:
 tty:x:5:greeter,open
+seat:x:100:open
 greeter:x:1000:
 open:x:1001:
 video:x:27:open
@@ -83,5 +88,5 @@ account   required  $pam/lib/security/pam_unix.so
 session   required  $pam/lib/security/pam_unix.so
 EOF
 
-touch "$guest_root/.open-init-populated-v2"
+touch "$guest_root/.open-init-populated-v3"
 printf '%s\n' "guest-root populated; log in as 'open' with an empty password"

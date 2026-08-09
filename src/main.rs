@@ -17,6 +17,7 @@ const GROOT: &str = "/usr/bin/greetd";
 const PAM_HELPER: &str = "/usr/lib/open-init/unix_chkpwd";
 const PAM_WRAPPER: &str = "/run/wrappers/bin/unix_chkpwd";
 const OPEN_RUNTIME_DIR: &str = "/run/user/1001";
+const SEATD: &str = "/usr/bin/seatd";
 
 fn mount(source: &str, target: &str, fstype: &str, flags: libc::c_ulong) -> io::Result<()> {
     fs::create_dir_all(target)?;
@@ -78,6 +79,12 @@ fn setup_user_dir(path: &str, uid: u32, gid: u32, mode: u32) -> io::Result<()> {
     Ok(())
 }
 
+fn start_seatd() -> io::Result<Child> {
+    Command::new(SEATD)
+        .args(["-u", "root", "-g", "seat", "-l", "error"])
+        .spawn()
+}
+
 fn reap_children() {
     loop {
         let mut status = 0;
@@ -113,6 +120,9 @@ fn main() -> io::Result<()> {
         if let Err(error) = setup_user_dir(path, uid, gid, 0o700) {
             eprintln!("open-init: could not configure {path}: {error}");
         }
+    }
+    if let Err(error) = start_seatd() {
+        eprintln!("open-init: could not start seatd: {error}");
     }
     let mut greetd: Option<Child> = None;
 
