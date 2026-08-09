@@ -38,6 +38,7 @@ ldd "$init_binary" | awk '
 ' | while IFS= read -r library; do
     [[ -f "$library" ]] || continue
     [[ -e "$staging_dir$library" ]] || install -Dm755 "$library" "$staging_dir$library"
+    chmod 755 "$staging_dir$library"
 done
 
 # pam_unix invokes this helper after greetd drops to the greeter account.

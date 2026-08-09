@@ -10,6 +10,8 @@ command -v nix >/dev/null ||
 if [[ "${FORCE_POPULATE:-0}" != "1" &&
     -x "$guest_root/usr/bin/greetd" &&
     -x "$guest_root/usr/bin/niri-session" &&
+    -x "$guest_root/bin/sh" &&
+    -f "$guest_root/.open-init-populated-v2" &&
     -d "$guest_root/nix/store" ]]; then
     printf '%s\n' 'guest-root already populated'
     exit 0
@@ -22,31 +24,34 @@ nix build --no-link \
     nixpkgs#tuigreet \
     nixpkgs#niri \
     nixpkgs#linux-pam \
+    nixpkgs#bash \
     nixpkgs#mesa >&2
 
 greetd="$(nix eval --raw nixpkgs#greetd.outPath)"
 tuigreet="$(nix eval --raw nixpkgs#tuigreet.outPath)"
 niri="$(nix eval --raw nixpkgs#niri.outPath)"
 pam="$(nix eval --raw nixpkgs#linux-pam.outPath)"
+bash="$(nix eval --raw nixpkgs#bash.outPath)"
 mesa="$(nix eval --raw nixpkgs#mesa.outPath)"
 
 if [[ -d "$guest_root/nix" ]]; then
     chmod -R u+w "$guest_root/nix"
 fi
 rm -rf "$guest_root/nix"
-mkdir -p "$guest_root/nix/store" "$guest_root/usr/bin" \
+mkdir -p "$guest_root/nix/store" "$guest_root/usr/bin" "$guest_root/bin" \
     "$guest_root/etc/greetd" "$guest_root/etc/pam.d" "$guest_root/home/open"
 
-nix-store -qR "$greetd" "$tuigreet" "$niri" "$pam" "$mesa" |
+nix-store -qR "$greetd" "$tuigreet" "$niri" "$pam" "$bash" "$mesa" |
     sort -u |
     while IFS= read -r store_path; do
-        cp -a --no-preserve=mode "$store_path" "$guest_root/nix/store/"
+        cp -a "$store_path" "$guest_root/nix/store/"
     done
 
 ln -sfn "$greetd/bin/greetd" "$guest_root/usr/bin/greetd"
 ln -sfn "$tuigreet/bin/tuigreet" "$guest_root/usr/bin/tuigreet"
 ln -sfn "$niri/bin/niri" "$guest_root/usr/bin/niri"
 ln -sfn "$niri/bin/niri-session" "$guest_root/usr/bin/niri-session"
+ln -sfn "$bash/bin/bash" "$guest_root/bin/sh"
 
 cat > "$guest_root/etc/passwd" <<'EOF'
 root:x:0:0:root:/root:/bin/sh
@@ -77,4 +82,5 @@ account   required  $pam/lib/security/pam_permit.so
 session   required  $pam/lib/security/pam_unix.so
 EOF
 
+touch "$guest_root/.open-init-populated-v2"
 printf '%s\n' "guest-root populated; log in as 'open' with an empty password"
