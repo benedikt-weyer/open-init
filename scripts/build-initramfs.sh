@@ -77,6 +77,7 @@ mesa_root="${mesa_gbm%/lib/gbm/dri_gbm.so}"
 ln -sfn "${mesa_root#"$staging_dir"}" "$staging_dir/usr/lib/open-init/opengl-driver"
 
 mkdir -p "$staging_dir"/{proc,sys,dev/pts,run,tmp}
+chmod 1777 "$staging_dir/tmp"
 printf '%s\n' 'open-init: creating compressed initramfs archive' >&2
 (
     cd "$staging_dir"

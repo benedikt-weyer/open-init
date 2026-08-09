@@ -178,11 +178,13 @@ cat > "$guest_root/etc/machine-id" <<'EOF'
 10a45236aad7301e7ccae5126a782ce5
 EOF
 ln -sfn /etc/machine-id "$guest_root/var/lib/dbus/machine-id"
-# dbus's packaged system.conf legacy-includes /etc/dbus-1/system.conf, which
-# would be itself once installed there; drop that line to avoid the cycle.
-rm -f "$guest_root/etc/dbus-1/system.conf"
+# dbus's packaged system.conf/session.conf legacy-include /etc/dbus-1/{system,session}.conf,
+# which would be themselves once installed there; drop those lines to avoid the cycle.
+rm -f "$guest_root/etc/dbus-1/system.conf" "$guest_root/etc/dbus-1/session.conf"
 sed '/<include ignore_missing="yes">\/etc\/dbus-1\/system.conf<\/include>/d' \
     "$dbus/share/dbus-1/system.conf" > "$guest_root/etc/dbus-1/system.conf"
+sed '/<include ignore_missing="yes">\/etc\/dbus-1\/session.conf<\/include>/d' \
+    "$dbus/share/dbus-1/session.conf" > "$guest_root/etc/dbus-1/session.conf"
 cat > "$guest_root/etc/nix/nix.conf" <<'EOF'
 build-users-group = nixbld
 sandbox = true

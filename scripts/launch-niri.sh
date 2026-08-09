@@ -7,4 +7,4 @@ export XDG_RUNTIME_DIR=/run/user/1001
 export LIBSEAT_BACKEND=seatd
 export XCURSOR_THEME=DMZ-White
 export XCURSOR_PATH=/usr/share/icons
-exec /usr/bin/niri --session
+exec /usr/bin/dbus-run-session -- /usr/bin/niri --session
