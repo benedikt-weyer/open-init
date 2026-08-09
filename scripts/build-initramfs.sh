@@ -38,6 +38,8 @@ install -Dm755 "$powerctl_binary" "$staging_dir/usr/lib/open-init/open-powerctl"
 mkdir -p "$staging_dir/sbin"
 ln -sfn /usr/lib/open-init/open-powerctl "$staging_dir/sbin/shutdown"
 ln -sfn /usr/lib/open-init/open-powerctl "$staging_dir/sbin/reboot"
+ln -sfn /usr/lib/open-init/open-powerctl "$staging_dir/usr/bin/shutdown"
+ln -sfn /usr/lib/open-init/open-powerctl "$staging_dir/usr/bin/reboot"
 install -Dm755 "$root_dir/scripts/launch-niri.sh" \
     "$staging_dir/usr/lib/open-init/launch-niri"
 

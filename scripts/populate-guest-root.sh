@@ -15,8 +15,10 @@ if [[ "${FORCE_POPULATE:-0}" != "1" &&
     -x "$guest_root/usr/bin/udevadm" &&
     -x "$guest_root/usr/bin/wofi" &&
     -x "$guest_root/usr/bin/alacritty" &&
+    -x "$guest_root/usr/bin/sudo" &&
+    -x "$guest_root/usr/bin/su" &&
     -x "$guest_root/bin/sh" &&
-    -f "$guest_root/.open-init-populated-v7" &&
+    -f "$guest_root/.open-init-populated-v8" &&
     -d "$guest_root/nix/store" ]]; then
     printf '%s\n' 'guest-root already populated'
     exit 0
@@ -32,6 +34,8 @@ nix build --no-link \
     nixpkgs#bash \
     nixpkgs#seatd \
     nixpkgs#eudev \
+    nixpkgs#shadow.su \
+    nixpkgs#sudo \
     nixpkgs#vanilla-dmz \
     nixpkgs#wofi \
     nixpkgs#alacritty \
@@ -44,6 +48,8 @@ pam="$(nix eval --raw nixpkgs#linux-pam.outPath)"
 bash="$(nix eval --raw nixpkgs#bash.outPath)"
 seatd="$(nix eval --raw nixpkgs#seatd.outPath)"
 eudev="$(nix eval --raw nixpkgs#eudev.outPath)"
+shadow_su="$(nix eval --raw nixpkgs#shadow.su.outPath)"
+sudo="$(nix eval --raw nixpkgs#sudo.outPath)"
 cursor_theme="$(nix eval --raw nixpkgs#vanilla-dmz.outPath)"
 wofi="$(nix eval --raw nixpkgs#wofi.outPath)"
 alacritty="$(nix eval --raw nixpkgs#alacritty.outPath)"
@@ -55,9 +61,11 @@ fi
 rm -rf "$guest_root/nix"
 mkdir -p "$guest_root/nix/store" "$guest_root/usr/bin" "$guest_root/bin" \
     "$guest_root/etc/greetd" "$guest_root/etc/pam.d" "$guest_root/etc/udev" \
+    "$guest_root/etc/sudoers.d" "$guest_root/usr/lib/open-init" \
     "$guest_root/home/open/.config/niri" "$guest_root/usr/share"
 
 nix-store -qR "$greetd" "$tuigreet" "$niri" "$pam" "$bash" "$seatd" "$eudev" \
+    "$shadow_su" "$sudo" \
     "$cursor_theme" "$wofi" "$alacritty" "$mesa" |
     sort -u |
     while IFS= read -r store_path; do
@@ -74,6 +82,10 @@ ln -sfn "$eudev/bin/udevadm" "$guest_root/usr/bin/udevadm"
 ln -sfn "$wofi/bin/wofi" "$guest_root/usr/bin/wofi"
 ln -sfn "$alacritty/bin/alacritty" "$guest_root/usr/bin/alacritty"
 ln -sfn "$bash/bin/bash" "$guest_root/bin/sh"
+install -Dm4755 "$shadow_su/bin/su" "$guest_root/usr/lib/open-init/su"
+install -Dm4755 "$sudo/bin/sudo" "$guest_root/usr/lib/open-init/sudo"
+ln -sfn /usr/lib/open-init/su "$guest_root/usr/bin/su"
+ln -sfn /usr/lib/open-init/sudo "$guest_root/usr/bin/sudo"
 ln -sfn "$eudev/var/lib/udev/rules.d" "$guest_root/etc/udev/rules.d"
 ln -sfn "$cursor_theme/share/icons" "$guest_root/usr/share/icons"
 
@@ -101,7 +113,7 @@ kvm:x:36:
 sgx:x:108:
 EOF
 cat > "$guest_root/etc/shadow" <<'EOF'
-root:*:1:0:99999:7:::
+root:$6$open-init-root$APaycsMA.T7KWL3c0rDr9h6vsWEL4AL9vczr0TiIOMCnhhXDaY80HisHbmt.6n5fjNyHOTsF/BWvbMm5fR9Tu0:1:0:99999:7:::
 greeter:!:1:0:99999:7:::
 open::1:0:99999:7:::
 EOF
@@ -116,6 +128,25 @@ auth      required  $pam/lib/security/pam_unix.so nullok
 account   required  $pam/lib/security/pam_unix.so
 session   required  $pam/lib/security/pam_unix.so
 EOF
+cat > "$guest_root/etc/pam.d/su" <<EOF
+auth      required  $pam/lib/security/pam_unix.so
+account   required  $pam/lib/security/pam_unix.so
+session   required  $pam/lib/security/pam_unix.so
+EOF
+cat > "$guest_root/etc/pam.d/sudo" <<EOF
+auth      required  $pam/lib/security/pam_permit.so
+account   required  $pam/lib/security/pam_permit.so
+session   required  $pam/lib/security/pam_permit.so
+EOF
+chmod u+w "$guest_root/etc/sudoers" "$guest_root/etc/sudoers.d/open" 2>/dev/null || true
+cat > "$guest_root/etc/sudoers.d/open" <<'EOF'
+open ALL=(ALL) NOPASSWD: ALL
+EOF
+cat > "$guest_root/etc/sudoers" <<'EOF'
+#includedir /etc/sudoers.d
+EOF
+chmod 440 "$guest_root/etc/sudoers.d/open"
+chmod 440 "$guest_root/etc/sudoers"
 
 cat > "$guest_root/home/open/.config/niri/config.kdl" <<'EOF'
 binds {
@@ -125,5 +156,5 @@ binds {
 }
 EOF
 
-touch "$guest_root/.open-init-populated-v7"
+touch "$guest_root/.open-init-populated-v8"
 printf '%s\n' "guest-root populated; log in as 'open' with an empty password"

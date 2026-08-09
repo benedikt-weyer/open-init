@@ -50,6 +50,11 @@ The generated demonstration account is `open` with an empty password. It is
 appropriate only for a disposable QEMU guest; replace `/etc/shadow` and the
 PAM configuration before using it elsewhere.
 
+The development-only root password is `root`. The `open` account has
+passwordless `sudo` access, so it can run `sudo shutdown`, `sudo reboot`, or
+`sudo su` without entering a password. This policy is intentionally insecure
+and must be replaced for any non-disposable system.
+
 On its first run the script clones the upstream Linux repository into
 `.cache/linux`, builds a minimal x86_64 kernel in `.cache/linux-build`, and
 caches its `bzImage`. Later runs reuse that image. Set `OPEN_INIT_CACHE_DIR` to
