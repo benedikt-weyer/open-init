@@ -9,6 +9,7 @@ use std::{
     fs, io,
     os::unix::fs::{PermissionsExt, symlink},
     process::{Child, Command},
+    sync::atomic::{AtomicU8, Ordering},
     thread,
     time::Duration,
 };
@@ -20,6 +21,19 @@ const UDEVADM: &str = "/usr/bin/udevadm";
 const UDEVD: &str = "/usr/bin/udevd";
 const OPENGL_DRIVER: &str = "/usr/lib/open-init/opengl-driver";
 const SERVICE_MANAGER: &str = "/usr/bin/open-service-manager";
+const SHUTDOWN_NONE: u8 = 0;
+const SHUTDOWN_POWEROFF: u8 = 1;
+const SHUTDOWN_REBOOT: u8 = 2;
+static SHUTDOWN_REQUEST: AtomicU8 = AtomicU8::new(SHUTDOWN_NONE);
+
+extern "C" fn request_shutdown(signal: libc::c_int) {
+    let action = if signal == libc::SIGUSR1 {
+        SHUTDOWN_REBOOT
+    } else {
+        SHUTDOWN_POWEROFF
+    };
+    SHUTDOWN_REQUEST.store(action, Ordering::Relaxed);
+}
 
 fn mount(source: &str, target: &str, fstype: &str, flags: libc::c_ulong) -> io::Result<()> {
     fs::create_dir_all(target)?;
@@ -117,9 +131,59 @@ fn start_service_manager() -> io::Result<Child> {
     Command::new(SERVICE_MANAGER).spawn()
 }
 
+fn shutdown(service_manager: Option<&mut Child>, action: u8) -> io::Result<()> {
+    let description = if action == SHUTDOWN_REBOOT {
+        "reboot"
+    } else {
+        "power off"
+    };
+    eprintln!("open-init: preparing to {description}");
+
+    if let Some(service_manager) = service_manager {
+        if unsafe { libc::kill(service_manager.id() as libc::pid_t, libc::SIGTERM) } == -1 {
+            let error = io::Error::last_os_error();
+            if error.raw_os_error() != Some(libc::ESRCH) {
+                eprintln!("open-init: could not stop service manager: {error}");
+            }
+        }
+        if let Err(error) = service_manager.wait() {
+            eprintln!("open-init: could not reap service manager: {error}");
+        }
+    }
+
+    unsafe {
+        libc::sync();
+    }
+    let command = if action == SHUTDOWN_REBOOT {
+        libc::RB_AUTOBOOT
+    } else {
+        libc::RB_POWER_OFF
+    };
+    if unsafe { libc::reboot(command) } == -1 {
+        return Err(io::Error::last_os_error());
+    }
+    Err(io::Error::other(
+        "kernel reboot request unexpectedly returned",
+    ))
+}
+
 fn main() -> io::Result<()> {
     if unsafe { libc::getpid() } != 1 {
         eprintln!("open-init: warning: expected to run as PID 1");
+    }
+    unsafe {
+        libc::signal(
+            libc::SIGTERM,
+            request_shutdown as *const () as libc::sighandler_t,
+        );
+        libc::signal(
+            libc::SIGINT,
+            request_shutdown as *const () as libc::sighandler_t,
+        );
+        libc::signal(
+            libc::SIGUSR1,
+            request_shutdown as *const () as libc::sighandler_t,
+        );
     }
 
     mount_kernel_filesystems();
@@ -146,6 +210,10 @@ fn main() -> io::Result<()> {
     let mut service_manager: Option<Child> = None;
 
     loop {
+        let shutdown_request = SHUTDOWN_REQUEST.swap(SHUTDOWN_NONE, Ordering::Relaxed);
+        if shutdown_request != SHUTDOWN_NONE {
+            return shutdown(service_manager.as_mut(), shutdown_request);
+        }
         reap_children();
 
         if service_manager.as_mut().is_none_or(|child| {

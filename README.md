@@ -22,6 +22,12 @@ The initramfs includes units for `greetd` and `seatd`. Add further unit files
 under [`guest-root/etc/open-service-manager/services.d`](guest-root/etc/open-service-manager/services.d)
 to include them in the guest.
 
+## Power control
+
+As root, run `shutdown` to power off immediately or `reboot` to restart
+immediately. Both commands ask PID 1 to stop the service manager and its
+services before synchronizing filesystems and issuing the kernel request.
+
 ## Run in QEMU
 
 With Nix installed, run:

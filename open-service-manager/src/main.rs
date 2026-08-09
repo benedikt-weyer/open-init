@@ -5,11 +5,17 @@ use std::{
     fs, io,
     path::{Path, PathBuf},
     process::{Child, Command},
+    sync::atomic::{AtomicBool, Ordering},
     thread,
     time::Duration,
 };
 
 const UNIT_DIRECTORY: &str = "/etc/open-service-manager/services.d";
+static SHUTDOWN_REQUESTED: AtomicBool = AtomicBool::new(false);
+
+extern "C" fn request_shutdown(_: libc::c_int) {
+    SHUTDOWN_REQUESTED.store(true, Ordering::Relaxed);
+}
 
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -83,6 +89,26 @@ impl Service {
             }
         }
     }
+
+    fn stop(&mut self) {
+        let Some(mut child) = self.child.take() else {
+            return;
+        };
+
+        eprintln!("open-service-manager: stopping {}", self.name);
+        if let Err(error) = child.kill() {
+            eprintln!(
+                "open-service-manager: could not stop {}: {error}",
+                self.name
+            );
+        }
+        if let Err(error) = child.wait() {
+            eprintln!(
+                "open-service-manager: could not reap {}: {error}",
+                self.name
+            );
+        }
+    }
 }
 
 fn load_services(directory: &Path) -> io::Result<Vec<Service>> {
@@ -127,18 +153,34 @@ fn load_services(directory: &Path) -> io::Result<Vec<Service>> {
 }
 
 fn main() -> io::Result<()> {
+    unsafe {
+        libc::signal(
+            libc::SIGTERM,
+            request_shutdown as *const () as libc::sighandler_t,
+        );
+        libc::signal(
+            libc::SIGINT,
+            request_shutdown as *const () as libc::sighandler_t,
+        );
+    }
+
     let mut services = load_services(Path::new(UNIT_DIRECTORY))?;
     eprintln!(
         "open-service-manager: loaded {} service unit(s)",
         services.len()
     );
 
-    loop {
+    while !SHUTDOWN_REQUESTED.load(Ordering::Relaxed) {
         for service in &mut services {
             service.poll();
         }
         thread::sleep(Duration::from_secs(1));
     }
+
+    for service in &mut services {
+        service.stop();
+    }
+    Ok(())
 }
 
 #[cfg(test)]

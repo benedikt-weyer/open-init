@@ -41,6 +41,7 @@ dependencies = [
 name = "open-service-manager"
 version = "0.1.0"
 dependencies = [
+ "libc",
  "serde",
  "toml",
 ]

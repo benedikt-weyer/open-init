@@ -28,11 +28,16 @@ cargo build --release --manifest-path "$root_dir/Cargo.toml" \
     --package open-service-manager >&2
 init_binary="$root_dir/target/release/open-init"
 service_manager_binary="$root_dir/target/release/open-service-manager"
+powerctl_binary="$root_dir/target/release/open-powerctl"
 
 printf '%s\n' 'open-init: copying guest runtime closure into initramfs' >&2
 cp -a "$guest_root/." "$staging_dir/"
 install -Dm755 "$init_binary" "$staging_dir/init"
 install -Dm755 "$service_manager_binary" "$staging_dir/usr/bin/open-service-manager"
+install -Dm755 "$powerctl_binary" "$staging_dir/usr/lib/open-init/open-powerctl"
+mkdir -p "$staging_dir/sbin"
+ln -sfn /usr/lib/open-init/open-powerctl "$staging_dir/sbin/shutdown"
+ln -sfn /usr/lib/open-init/open-powerctl "$staging_dir/sbin/reboot"
 install -Dm755 "$root_dir/scripts/launch-niri.sh" \
     "$staging_dir/usr/lib/open-init/launch-niri"
 
