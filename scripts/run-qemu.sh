@@ -8,7 +8,7 @@ initramfs="$("$root_dir/scripts/build-initramfs.sh")"
 
 exec qemu-system-x86_64 \
     -machine accel=kvm:tcg \
-    -m "${QEMU_MEMORY:-4G}" \
+    -m "${QEMU_MEMORY:-6G}" \
     -smp "${QEMU_CPUS:-4}" \
     -kernel "$kernel" \
     -initrd "$initramfs" \

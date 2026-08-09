@@ -13,8 +13,10 @@ if [[ "${FORCE_POPULATE:-0}" != "1" &&
     -x "$guest_root/usr/bin/seatd" &&
     -x "$guest_root/usr/bin/udevd" &&
     -x "$guest_root/usr/bin/udevadm" &&
+    -x "$guest_root/usr/bin/wofi" &&
+    -x "$guest_root/usr/bin/alacritty" &&
     -x "$guest_root/bin/sh" &&
-    -f "$guest_root/.open-init-populated-v6" &&
+    -f "$guest_root/.open-init-populated-v7" &&
     -d "$guest_root/nix/store" ]]; then
     printf '%s\n' 'guest-root already populated'
     exit 0
@@ -31,6 +33,8 @@ nix build --no-link \
     nixpkgs#seatd \
     nixpkgs#eudev \
     nixpkgs#vanilla-dmz \
+    nixpkgs#wofi \
+    nixpkgs#alacritty \
     nixpkgs#mesa >&2
 
 greetd="$(nix eval --raw nixpkgs#greetd.outPath)"
@@ -41,6 +45,8 @@ bash="$(nix eval --raw nixpkgs#bash.outPath)"
 seatd="$(nix eval --raw nixpkgs#seatd.outPath)"
 eudev="$(nix eval --raw nixpkgs#eudev.outPath)"
 cursor_theme="$(nix eval --raw nixpkgs#vanilla-dmz.outPath)"
+wofi="$(nix eval --raw nixpkgs#wofi.outPath)"
+alacritty="$(nix eval --raw nixpkgs#alacritty.outPath)"
 mesa="$(nix eval --raw nixpkgs#mesa.outPath)"
 
 if [[ -d "$guest_root/nix" ]]; then
@@ -49,10 +55,10 @@ fi
 rm -rf "$guest_root/nix"
 mkdir -p "$guest_root/nix/store" "$guest_root/usr/bin" "$guest_root/bin" \
     "$guest_root/etc/greetd" "$guest_root/etc/pam.d" "$guest_root/etc/udev" \
-    "$guest_root/home/open" "$guest_root/usr/share"
+    "$guest_root/home/open/.config/niri" "$guest_root/usr/share"
 
 nix-store -qR "$greetd" "$tuigreet" "$niri" "$pam" "$bash" "$seatd" "$eudev" \
-    "$cursor_theme" "$mesa" |
+    "$cursor_theme" "$wofi" "$alacritty" "$mesa" |
     sort -u |
     while IFS= read -r store_path; do
         cp -a "$store_path" "$guest_root/nix/store/"
@@ -65,6 +71,8 @@ ln -sfn "$niri/bin/niri-session" "$guest_root/usr/bin/niri-session"
 ln -sfn "$seatd/bin/seatd" "$guest_root/usr/bin/seatd"
 ln -sfn "$eudev/bin/udevd" "$guest_root/usr/bin/udevd"
 ln -sfn "$eudev/bin/udevadm" "$guest_root/usr/bin/udevadm"
+ln -sfn "$wofi/bin/wofi" "$guest_root/usr/bin/wofi"
+ln -sfn "$alacritty/bin/alacritty" "$guest_root/usr/bin/alacritty"
 ln -sfn "$bash/bin/bash" "$guest_root/bin/sh"
 ln -sfn "$eudev/var/lib/udev/rules.d" "$guest_root/etc/udev/rules.d"
 ln -sfn "$cursor_theme/share/icons" "$guest_root/usr/share/icons"
@@ -109,5 +117,13 @@ account   required  $pam/lib/security/pam_unix.so
 session   required  $pam/lib/security/pam_unix.so
 EOF
 
-touch "$guest_root/.open-init-populated-v6"
+cat > "$guest_root/home/open/.config/niri/config.kdl" <<'EOF'
+binds {
+    Super+Space { spawn "wofi" "--show" "drun"; }
+    Super+C { spawn "alacritty"; }
+    Super+X { close-window; }
+}
+EOF
+
+touch "$guest_root/.open-init-populated-v7"
 printf '%s\n' "guest-root populated; log in as 'open' with an empty password"
