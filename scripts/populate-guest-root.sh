@@ -78,7 +78,7 @@ shadow: files
 EOF
 cat > "$guest_root/etc/pam.d/greetd" <<EOF
 auth      required  $pam/lib/security/pam_unix.so nullok
-account   required  $pam/lib/security/pam_permit.so
+account   required  $pam/lib/security/pam_unix.so
 session   required  $pam/lib/security/pam_unix.so
 EOF
 

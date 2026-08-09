@@ -7,12 +7,15 @@
 use std::{
     ffi::CString,
     fs, io,
+    os::unix::fs::symlink,
     process::{Child, Command},
     thread,
     time::Duration,
 };
 
 const GROOT: &str = "/usr/bin/greetd";
+const PAM_HELPER: &str = "/usr/lib/open-init/unix_chkpwd";
+const PAM_WRAPPER: &str = "/run/wrappers/bin/unix_chkpwd";
 
 fn mount(source: &str, target: &str, fstype: &str, flags: libc::c_ulong) -> io::Result<()> {
     fs::create_dir_all(target)?;
@@ -54,6 +57,11 @@ fn mount_kernel_filesystems() {
     }
 }
 
+fn setup_pam_helper() -> io::Result<()> {
+    fs::create_dir_all("/run/wrappers/bin")?;
+    symlink(PAM_HELPER, PAM_WRAPPER)
+}
+
 fn reap_children() {
     loop {
         let mut status = 0;
@@ -76,6 +84,9 @@ fn main() -> io::Result<()> {
     }
 
     mount_kernel_filesystems();
+    if let Err(error) = setup_pam_helper() {
+        eprintln!("open-init: could not configure PAM helper: {error}");
+    }
     let mut greetd: Option<Child> = None;
 
     loop {

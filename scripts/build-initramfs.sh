@@ -41,10 +41,15 @@ ldd "$init_binary" | awk '
     chmod 755 "$staging_dir$library"
 done
 
-# pam_unix invokes this helper after greetd drops to the greeter account.
-# Nix store files cannot carry setuid bits, so add the required guest-only
-# privilege after copying the runtime closure.
-find "$staging_dir/nix/store" -type f -name unix_chkpwd -exec chmod 4755 {} +
+# pam_unix is configured to invoke /run/wrappers/bin/unix_chkpwd. The /run
+# mount is created at boot, so stage its setuid target outside it; PID 1
+# creates the expected wrapper symlink after mounting /run.
+unix_chkpwd="$(find "$staging_dir/nix/store" -type f -name unix_chkpwd -print -quit)"
+if [[ -z "$unix_chkpwd" ]]; then
+    printf '%s\n' 'open-init: linux-pam unix_chkpwd helper is missing' >&2
+    exit 1
+fi
+install -Dm4755 "$unix_chkpwd" "$staging_dir/usr/lib/open-init/unix_chkpwd"
 
 mkdir -p "$staging_dir"/{proc,sys,dev/pts,run,tmp}
 printf '%s\n' 'open-init: creating compressed initramfs archive' >&2
