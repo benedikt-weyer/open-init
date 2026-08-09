@@ -26,7 +26,7 @@ fi
 rm -rf "$staging_dir"
 mkdir -p "$staging_dir"
 printf '%s\n' 'open-init: copying guest runtime closure into initramfs' >&2
-cp -a --no-preserve=mode "$guest_root/." "$staging_dir/"
+cp -a "$guest_root/." "$staging_dir/"
 install -Dm755 "$init_binary" "$staging_dir/init"
 
 # PID 1 is intentionally dynamically linked to glibc. Copy its interpreter
