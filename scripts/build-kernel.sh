@@ -9,22 +9,13 @@ kernel_image="$build_dir/arch/x86/boot/bzImage"
 kernel_repo="${LINUX_REPOSITORY:-https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git}"
 
 # A standard Linux kernel build needs generated parsers and ELF/BTF tooling.
-# On Nix hosts obtain them transiently instead of requiring global installs.
-if ! command -v flex >/dev/null || ! command -v bison >/dev/null || ! command -v bc >/dev/null; then
+# Always use the project's Nix shell so split development headers (gelf.h) are
+# visible to the Linux host-tool build.
+if [[ "${OPEN_INIT_KERNEL_ENV:-}" != "1" ]]; then
     command -v nix >/dev/null ||
-        { printf 'flex, bison, and bc are required to build the Linux kernel\n' >&2; exit 1; }
-    exec nix shell --impure \
-        nixpkgs#bc \
-        nixpkgs#bison \
-        nixpkgs#flex \
-        nixpkgs#openssl \
-        nixpkgs#elfutils \
-        nixpkgs#elfutils.dev \
-        nixpkgs#pahole \
-        nixpkgs#perl \
-        nixpkgs#gcc \
-        nixpkgs#binutils \
-        --command bash "${BASH_SOURCE[0]}" "$@"
+        { printf 'Nix is required to build the Linux kernel\n' >&2; exit 1; }
+    exec nix develop "$root_dir" --command env OPEN_INIT_KERNEL_ENV=1 \
+        bash "${BASH_SOURCE[0]}" "$@"
 fi
 
 command -v flock >/dev/null ||
@@ -61,9 +52,7 @@ make -C "$linux_dir" O="$build_dir" x86_64_defconfig >&2
     --enable DRM \
     --enable DRM_VIRTIO_GPU \
     --enable DRM_BOCHS \
-    --enable DRM_QXL \
-    --disable STACK_VALIDATION \
-    --disable UNWINDER_ORC >&2
+    --enable DRM_QXL >&2
 make -C "$linux_dir" O="$build_dir" olddefconfig >&2
 make -C "$linux_dir" O="$build_dir" -j"$(nproc)" bzImage >&2
 

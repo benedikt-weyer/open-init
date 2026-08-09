@@ -8,3 +8,4 @@
 /guest-root/etc/shadow
 /guest-root/etc/pam.d
 /guest-root/home
+/.direnv
