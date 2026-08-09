@@ -18,7 +18,7 @@ if [[ "${FORCE_POPULATE:-0}" != "1" &&
     -x "$guest_root/usr/bin/sudo" &&
     -x "$guest_root/usr/bin/su" &&
     -x "$guest_root/bin/sh" &&
-    -f "$guest_root/.open-init-populated-v9" &&
+    -f "$guest_root/.open-init-populated-v10" &&
     -d "$guest_root/nix/store" ]]; then
     printf '%s\n' 'guest-root already populated'
     exit 0
@@ -153,6 +153,10 @@ chmod 440 "$guest_root/etc/sudoers.d/open"
 chmod 440 "$guest_root/etc/sudoers"
 
 cat > "$guest_root/home/open/.config/niri/config.kdl" <<'EOF'
+environment {
+    XDG_DATA_DIRS "/usr/share"
+}
+
 binds {
     Super+Space { spawn "wofi" "--show" "drun"; }
     Super+C { spawn "alacritty"; }
@@ -160,5 +164,5 @@ binds {
 }
 EOF
 
-touch "$guest_root/.open-init-populated-v9"
+touch "$guest_root/.open-init-populated-v10"
 printf '%s\n' "guest-root populated; log in as 'open' with an empty password"
