@@ -7,7 +7,7 @@
 use std::{
     ffi::CString,
     fs, io,
-    os::unix::fs::symlink,
+    os::unix::fs::{symlink, PermissionsExt},
     process::{Child, Command},
     thread,
     time::Duration,
@@ -16,6 +16,7 @@ use std::{
 const GROOT: &str = "/usr/bin/greetd";
 const PAM_HELPER: &str = "/usr/lib/open-init/unix_chkpwd";
 const PAM_WRAPPER: &str = "/run/wrappers/bin/unix_chkpwd";
+const OPEN_RUNTIME_DIR: &str = "/run/user/1001";
 
 fn mount(source: &str, target: &str, fstype: &str, flags: libc::c_ulong) -> io::Result<()> {
     fs::create_dir_all(target)?;
@@ -62,6 +63,21 @@ fn setup_pam_helper() -> io::Result<()> {
     symlink(PAM_HELPER, PAM_WRAPPER)
 }
 
+fn setup_open_runtime_dir() -> io::Result<()> {
+    setup_user_dir(OPEN_RUNTIME_DIR, 1001, 1001, 0o700)
+}
+
+fn setup_user_dir(path: &str, uid: u32, gid: u32, mode: u32) -> io::Result<()> {
+    fs::create_dir_all(path)?;
+    fs::set_permissions(path, fs::Permissions::from_mode(mode))?;
+
+    let path = CString::new(path)?;
+    if unsafe { libc::chown(path.as_ptr(), uid, gid) } == -1 {
+        return Err(io::Error::last_os_error());
+    }
+    Ok(())
+}
+
 fn reap_children() {
     loop {
         let mut status = 0;
@@ -84,8 +100,19 @@ fn main() -> io::Result<()> {
     }
 
     mount_kernel_filesystems();
+    if let Err(error) = fs::set_permissions("/dev/ttyS0", fs::Permissions::from_mode(0o666)) {
+        eprintln!("open-init: could not configure serial console: {error}");
+    }
     if let Err(error) = setup_pam_helper() {
         eprintln!("open-init: could not configure PAM helper: {error}");
+    }
+    if let Err(error) = setup_open_runtime_dir() {
+        eprintln!("open-init: could not configure open runtime directory: {error}");
+    }
+    for (path, uid, gid) in [("/home/open", 1001, 1001), ("/var/lib/greetd", 1000, 1000)] {
+        if let Err(error) = setup_user_dir(path, uid, gid, 0o700) {
+            eprintln!("open-init: could not configure {path}: {error}");
+        }
     }
     let mut greetd: Option<Child> = None;
 

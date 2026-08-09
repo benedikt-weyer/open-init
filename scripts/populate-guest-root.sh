@@ -60,6 +60,7 @@ open:x:1001:1001:Open Init User:/home/open:/bin/sh
 EOF
 cat > "$guest_root/etc/group" <<'EOF'
 root:x:0:
+tty:x:5:greeter,open
 greeter:x:1000:
 open:x:1001:
 video:x:27:open

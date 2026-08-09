@@ -2,6 +2,6 @@
 vt = 1
 
 [default_session]
-command = "/usr/bin/tuigreet --cmd /usr/bin/niri-session"
+command = "/usr/bin/tuigreet --debug /dev/ttyS0 --cmd /usr/lib/open-init/launch-niri"
 user = "greeter"
 service = "greetd"

@@ -29,6 +29,8 @@ init_binary="$root_dir/target/release/open-init"
 printf '%s\n' 'open-init: copying guest runtime closure into initramfs' >&2
 cp -a "$guest_root/." "$staging_dir/"
 install -Dm755 "$init_binary" "$staging_dir/init"
+install -Dm755 "$root_dir/scripts/launch-niri.sh" \
+    "$staging_dir/usr/lib/open-init/launch-niri"
 
 # PID 1 is intentionally dynamically linked to glibc. Copy its interpreter
 # and shared objects at their absolute paths, including Nix-store paths.
