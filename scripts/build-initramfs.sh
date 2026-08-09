@@ -4,8 +4,15 @@ set -euo pipefail
 root_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 cache_dir="${OPEN_INIT_CACHE_DIR:-$root_dir/.cache}"
 guest_root="${GUEST_ROOT:-$root_dir/guest-root}"
-staging_dir="$cache_dir/initramfs-root"
 archive="$cache_dir/open-init.cpio.gz"
+staging_dir="$(mktemp -d "$cache_dir/initramfs-root.XXXXXX")"
+archive_tmp="$(mktemp "$cache_dir/.open-init.cpio.gz.XXXXXX")"
+
+cleanup() {
+    chmod -R u+w "$staging_dir" 2>/dev/null || true
+    rm -rf "$staging_dir" "$archive_tmp"
+}
+trap cleanup EXIT
 
 if [[ ! -x "$guest_root/usr/bin/greetd" ]]; then
     printf 'guest-root must contain an executable usr/bin/greetd\n' >&2
@@ -19,12 +26,6 @@ fi
 cargo build --release --manifest-path "$root_dir/Cargo.toml" >&2
 init_binary="$root_dir/target/release/open-init"
 
-if [[ -d "$staging_dir" ]]; then
-    printf '%s\n' 'open-init: removing previous initramfs staging tree' >&2
-    chmod -R u+w "$staging_dir"
-fi
-rm -rf "$staging_dir"
-mkdir -p "$staging_dir"
 printf '%s\n' 'open-init: copying guest runtime closure into initramfs' >&2
 cp -a "$guest_root/." "$staging_dir/"
 install -Dm755 "$init_binary" "$staging_dir/init"
@@ -49,6 +50,7 @@ printf '%s\n' 'open-init: creating compressed initramfs archive' >&2
 (
     cd "$staging_dir"
     find . -print0 | cpio --null --quiet -o --format=newc --owner=0:0 | gzip -1
-) > "$archive"
+) > "$archive_tmp"
+mv "$archive_tmp" "$archive"
 
 printf '%s\n' "$archive"
