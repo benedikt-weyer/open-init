@@ -17,4 +17,5 @@ exec qemu-system-x86_64 \
     -device virtio-vga-gl \
     -device virtio-keyboard-pci \
     -device virtio-mouse-pci \
+    -device virtio-tablet-pci \
     -display gtk,gl=on

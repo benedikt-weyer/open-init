@@ -14,7 +14,7 @@ if [[ "${FORCE_POPULATE:-0}" != "1" &&
     -x "$guest_root/usr/bin/udevd" &&
     -x "$guest_root/usr/bin/udevadm" &&
     -x "$guest_root/bin/sh" &&
-    -f "$guest_root/.open-init-populated-v5" &&
+    -f "$guest_root/.open-init-populated-v6" &&
     -d "$guest_root/nix/store" ]]; then
     printf '%s\n' 'guest-root already populated'
     exit 0
@@ -30,6 +30,7 @@ nix build --no-link \
     nixpkgs#bash \
     nixpkgs#seatd \
     nixpkgs#eudev \
+    nixpkgs#vanilla-dmz \
     nixpkgs#mesa >&2
 
 greetd="$(nix eval --raw nixpkgs#greetd.outPath)"
@@ -39,6 +40,7 @@ pam="$(nix eval --raw nixpkgs#linux-pam.outPath)"
 bash="$(nix eval --raw nixpkgs#bash.outPath)"
 seatd="$(nix eval --raw nixpkgs#seatd.outPath)"
 eudev="$(nix eval --raw nixpkgs#eudev.outPath)"
+cursor_theme="$(nix eval --raw nixpkgs#vanilla-dmz.outPath)"
 mesa="$(nix eval --raw nixpkgs#mesa.outPath)"
 
 if [[ -d "$guest_root/nix" ]]; then
@@ -47,9 +49,10 @@ fi
 rm -rf "$guest_root/nix"
 mkdir -p "$guest_root/nix/store" "$guest_root/usr/bin" "$guest_root/bin" \
     "$guest_root/etc/greetd" "$guest_root/etc/pam.d" "$guest_root/etc/udev" \
-    "$guest_root/home/open"
+    "$guest_root/home/open" "$guest_root/usr/share"
 
-nix-store -qR "$greetd" "$tuigreet" "$niri" "$pam" "$bash" "$seatd" "$eudev" "$mesa" |
+nix-store -qR "$greetd" "$tuigreet" "$niri" "$pam" "$bash" "$seatd" "$eudev" \
+    "$cursor_theme" "$mesa" |
     sort -u |
     while IFS= read -r store_path; do
         cp -a "$store_path" "$guest_root/nix/store/"
@@ -64,6 +67,7 @@ ln -sfn "$eudev/bin/udevd" "$guest_root/usr/bin/udevd"
 ln -sfn "$eudev/bin/udevadm" "$guest_root/usr/bin/udevadm"
 ln -sfn "$bash/bin/bash" "$guest_root/bin/sh"
 ln -sfn "$eudev/var/lib/udev/rules.d" "$guest_root/etc/udev/rules.d"
+ln -sfn "$cursor_theme/share/icons" "$guest_root/usr/share/icons"
 
 cat > "$guest_root/etc/passwd" <<'EOF'
 root:x:0:0:root:/root:/bin/sh
@@ -105,5 +109,5 @@ account   required  $pam/lib/security/pam_unix.so
 session   required  $pam/lib/security/pam_unix.so
 EOF
 
-touch "$guest_root/.open-init-populated-v5"
+touch "$guest_root/.open-init-populated-v6"
 printf '%s\n' "guest-root populated; log in as 'open' with an empty password"
