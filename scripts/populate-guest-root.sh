@@ -7,6 +7,14 @@ guest_root="${GUEST_ROOT:-$root_dir/guest-root}"
 command -v nix >/dev/null ||
     { printf 'Nix is required to populate guest-root automatically\n' >&2; exit 1; }
 
+if [[ "${FORCE_POPULATE:-0}" != "1" &&
+    -x "$guest_root/usr/bin/greetd" &&
+    -x "$guest_root/usr/bin/niri-session" &&
+    -d "$guest_root/nix/store" ]]; then
+    printf '%s\n' 'guest-root already populated'
+    exit 0
+fi
+
 # Nix preserves all runtime references in /nix/store. Copying the transitive
 # closures creates a self-contained guest without relying on host libraries.
 nix build --no-link \
@@ -22,6 +30,9 @@ niri="$(nix eval --raw nixpkgs#niri.outPath)"
 pam="$(nix eval --raw nixpkgs#linux-pam.outPath)"
 mesa="$(nix eval --raw nixpkgs#mesa.outPath)"
 
+if [[ -d "$guest_root/nix" ]]; then
+    chmod -R u+w "$guest_root/nix"
+fi
 rm -rf "$guest_root/nix"
 mkdir -p "$guest_root/nix/store" "$guest_root/usr/bin" \
     "$guest_root/etc/greetd" "$guest_root/etc/pam.d" "$guest_root/home/open"
@@ -29,7 +40,7 @@ mkdir -p "$guest_root/nix/store" "$guest_root/usr/bin" \
 nix-store -qR "$greetd" "$tuigreet" "$niri" "$pam" "$mesa" |
     sort -u |
     while IFS= read -r store_path; do
-        cp -a "$store_path" "$guest_root/nix/store/"
+        cp -a --no-preserve=mode "$store_path" "$guest_root/nix/store/"
     done
 
 ln -sfn "$greetd/bin/greetd" "$guest_root/usr/bin/greetd"

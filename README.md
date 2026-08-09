@@ -20,6 +20,9 @@ creates the users and PAM configuration. The supplied
 greetd to authenticate through tuigreet and start niri for the authenticated
 user.
 
+The populated root is cached. Run `FORCE_POPULATE=1
+./scripts/populate-guest-root.sh` to replace it after changing package inputs.
+
 The generated demonstration account is `open` with an empty password. It is
 appropriate only for a disposable QEMU guest; replace `/etc/shadow` and the
 PAM configuration before using it elsewhere.
