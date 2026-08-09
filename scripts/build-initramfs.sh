@@ -53,6 +53,14 @@ if [[ -z "$unix_chkpwd" ]]; then
 fi
 install -Dm4755 "$unix_chkpwd" "$staging_dir/usr/lib/open-init/unix_chkpwd"
 
+mesa_gbm="$(find "$staging_dir/nix/store" -type f -path '*/lib/gbm/dri_gbm.so' -print -quit)"
+if [[ -z "$mesa_gbm" ]]; then
+    printf '%s\n' 'open-init: Mesa GBM loader is missing' >&2
+    exit 1
+fi
+mesa_root="${mesa_gbm%/lib/gbm/dri_gbm.so}"
+ln -sfn "${mesa_root#"$staging_dir"}" "$staging_dir/usr/lib/open-init/opengl-driver"
+
 mkdir -p "$staging_dir"/{proc,sys,dev/pts,run,tmp}
 printf '%s\n' 'open-init: creating compressed initramfs archive' >&2
 (
