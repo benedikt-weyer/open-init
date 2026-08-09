@@ -7,5 +7,7 @@
 /guest-root/etc/passwd
 /guest-root/etc/shadow
 /guest-root/etc/pam.d
+/guest-root/etc/udev
 /guest-root/home
+/guest-root/.open-init-populated-v*
 /.direnv

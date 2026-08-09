@@ -6,7 +6,7 @@ cache_dir="${OPEN_INIT_CACHE_DIR:-$root_dir/.cache}"
 linux_dir="$cache_dir/linux"
 build_dir="$cache_dir/linux-build"
 kernel_image="$build_dir/arch/x86/boot/bzImage"
-config_version=2
+config_version=3
 config_stamp="$build_dir/.open-init-kernel-config-version"
 kernel_repo="${LINUX_REPOSITORY:-https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git}"
 
@@ -57,7 +57,10 @@ make -C "$linux_dir" O="$build_dir" x86_64_defconfig >&2
     --enable DRM_FBDEV_EMULATION \
     --enable DRM_VIRTIO_GPU \
     --enable DRM_BOCHS \
-    --enable DRM_QXL >&2
+    --enable DRM_QXL \
+    --enable INPUT \
+    --enable INPUT_EVDEV \
+    --enable VIRTIO_INPUT >&2
 make -C "$linux_dir" O="$build_dir" olddefconfig >&2
 make -C "$linux_dir" O="$build_dir" -j"$(nproc)" bzImage >&2
 

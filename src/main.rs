@@ -7,7 +7,7 @@
 use std::{
     ffi::CString,
     fs, io,
-    os::unix::fs::{symlink, PermissionsExt},
+    os::unix::fs::{PermissionsExt, symlink},
     process::{Child, Command},
     thread,
     time::Duration,
@@ -18,6 +18,8 @@ const PAM_HELPER: &str = "/usr/lib/open-init/unix_chkpwd";
 const PAM_WRAPPER: &str = "/run/wrappers/bin/unix_chkpwd";
 const OPEN_RUNTIME_DIR: &str = "/run/user/1001";
 const SEATD: &str = "/usr/bin/seatd";
+const UDEVADM: &str = "/usr/bin/udevadm";
+const UDEVD: &str = "/usr/bin/udevd";
 const OPENGL_DRIVER: &str = "/usr/lib/open-init/opengl-driver";
 
 fn mount(source: &str, target: &str, fstype: &str, flags: libc::c_ulong) -> io::Result<()> {
@@ -86,6 +88,26 @@ fn start_seatd() -> io::Result<Child> {
         .spawn()
 }
 
+fn start_udev() -> io::Result<()> {
+    Command::new(UDEVD).arg("--daemon").status()?;
+
+    for args in [
+        &["trigger", "--action=add", "--type=subsystems"][..],
+        &["trigger", "--action=add", "--type=devices"][..],
+        &["settle", "--timeout=5"][..],
+    ] {
+        let status = Command::new(UDEVADM).args(args).status()?;
+        if !status.success() {
+            return Err(io::Error::other(format!(
+                "udevadm {} exited with {status}",
+                args[0]
+            )));
+        }
+    }
+
+    Ok(())
+}
+
 fn reap_children() {
     loop {
         let mut status = 0;
@@ -124,6 +146,9 @@ fn main() -> io::Result<()> {
         if let Err(error) = setup_user_dir(path, uid, gid, 0o700) {
             eprintln!("open-init: could not configure {path}: {error}");
         }
+    }
+    if let Err(error) = start_udev() {
+        eprintln!("open-init: could not start or initialize udev: {error}");
     }
     if let Err(error) = start_seatd() {
         eprintln!("open-init: could not start seatd: {error}");

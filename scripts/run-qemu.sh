@@ -15,4 +15,6 @@ exec qemu-system-x86_64 \
     -append "console=ttyS0 rdinit=/init" \
     -serial stdio \
     -device virtio-vga-gl \
+    -device virtio-keyboard-pci \
+    -device virtio-mouse-pci \
     -display gtk,gl=on
