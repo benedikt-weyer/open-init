@@ -43,7 +43,7 @@ mkdir -p "$staging_dir"/{proc,sys,dev/pts,run,tmp}
 printf '%s\n' 'open-init: creating compressed initramfs archive' >&2
 (
     cd "$staging_dir"
-    find . -print0 | cpio --null --quiet -o --format=newc | gzip -1
+    find . -print0 | cpio --null --quiet -o --format=newc --owner=0:0 | gzip -1
 ) > "$archive"
 
 printf '%s\n' "$archive"
