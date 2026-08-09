@@ -20,8 +20,9 @@ if [[ "${FORCE_POPULATE:-0}" != "1" &&
     -x "$guest_root/usr/bin/nix" &&
     -x "$guest_root/usr/bin/nix-daemon" &&
     -x "$guest_root/usr/bin/ip" &&
+    -x "$guest_root/usr/bin/dbus-daemon" &&
     -x "$guest_root/bin/sh" &&
-    -f "$guest_root/.open-init-populated-v11" &&
+    -f "$guest_root/.open-init-populated-v12" &&
     -d "$guest_root/nix/store" ]]; then
     printf '%s\n' 'guest-root already populated'
     exit 0
@@ -45,7 +46,8 @@ nix build --no-link \
     nixpkgs#mesa \
     nixpkgs#nix \
     nixpkgs#cacert \
-    nixpkgs#iproute2 >&2
+    nixpkgs#iproute2 \
+    nixpkgs#dbus >&2
 
 greetd="$(nix eval --raw nixpkgs#greetd.outPath)"
 tuigreet="$(nix eval --raw nixpkgs#tuigreet.outPath)"
@@ -63,6 +65,7 @@ mesa="$(nix eval --raw nixpkgs#mesa.outPath)"
 nix_pkg="$(nix eval --raw nixpkgs#nix.outPath)"
 cacert="$(nix eval --raw nixpkgs#cacert.outPath)"
 iproute2="$(nix eval --raw nixpkgs#iproute2.outPath)"
+dbus="$(nix eval --raw nixpkgs#dbus.outPath)"
 
 if [[ -d "$guest_root/nix" ]]; then
     chmod -R u+w "$guest_root/nix"
@@ -72,12 +75,13 @@ mkdir -p "$guest_root/nix/store" "$guest_root/nix/var/nix" "$guest_root/usr/bin"
     "$guest_root/etc/greetd" "$guest_root/etc/pam.d" "$guest_root/etc/udev" \
     "$guest_root/etc/sudoers.d" "$guest_root/etc/nix" "$guest_root/etc/ssl/certs" \
     "$guest_root/etc/open-service-manager/services.d" "$guest_root/usr/lib/open-init" \
-    "$guest_root/home/open/.config/niri" "$guest_root/usr/share"
+    "$guest_root/home/open/.config/niri" "$guest_root/usr/share" \
+    "$guest_root/etc/dbus-1/system.d" "$guest_root/var/lib/dbus"
 
 nix-store -qR "$greetd" "$tuigreet" "$niri" "$pam" "$bash" "$seatd" "$eudev" \
     "$shadow_su" "$sudo" \
     "$cursor_theme" "$wofi" "$alacritty" "$mesa" \
-    "$nix_pkg" "$cacert" "$iproute2" |
+    "$nix_pkg" "$cacert" "$iproute2" "$dbus" |
     sort -u |
     while IFS= read -r store_path; do
         cp -a "$store_path" "$guest_root/nix/store/"
@@ -104,6 +108,9 @@ for binary in "$nix_pkg"/bin/*; do
     ln -sfn "$binary" "$guest_root/usr/bin/$(basename "$binary")"
 done
 ln -sfn "$iproute2/bin/ip" "$guest_root/usr/bin/ip"
+for binary in "$dbus"/bin/*; do
+    ln -sfn "$binary" "$guest_root/usr/bin/$(basename "$binary")"
+done
 ln -sfn "$cacert/etc/ssl/certs/ca-bundle.crt" \
     "$guest_root/etc/ssl/certs/ca-certificates.crt"
 
@@ -115,6 +122,7 @@ cat > "$guest_root/etc/passwd" <<'EOF'
 root:x:0:0:root:/root:/bin/sh
 greeter:x:1000:1000:Greeter:/var/lib/greetd:/bin/sh
 open:x:1001:1001:Open Init User:/home/open:/bin/sh
+messagebus:x:104:104:D-Bus Message Bus:/var/lib/dbus:/bin/sh
 nixbld1:x:30001:30000:Nix build user 1:/var/empty:/bin/sh
 nixbld2:x:30002:30000:Nix build user 2:/var/empty:/bin/sh
 nixbld3:x:30003:30000:Nix build user 3:/var/empty:/bin/sh
@@ -136,6 +144,7 @@ tape:x:26:
 seat:x:100:open
 greeter:x:1000:
 open:x:1001:
+messagebus:x:104:
 video:x:27:open
 input:x:28:open
 audio:x:29:
@@ -165,6 +174,15 @@ EOF
 cat > "$guest_root/etc/resolv.conf" <<'EOF'
 nameserver 10.0.2.3
 EOF
+cat > "$guest_root/etc/machine-id" <<'EOF'
+10a45236aad7301e7ccae5126a782ce5
+EOF
+ln -sfn /etc/machine-id "$guest_root/var/lib/dbus/machine-id"
+# dbus's packaged system.conf legacy-includes /etc/dbus-1/system.conf, which
+# would be itself once installed there; drop that line to avoid the cycle.
+rm -f "$guest_root/etc/dbus-1/system.conf"
+sed '/<include ignore_missing="yes">\/etc\/dbus-1\/system.conf<\/include>/d' \
+    "$dbus/share/dbus-1/system.conf" > "$guest_root/etc/dbus-1/system.conf"
 cat > "$guest_root/etc/nix/nix.conf" <<'EOF'
 build-users-group = nixbld
 sandbox = true
@@ -209,5 +227,5 @@ binds {
 }
 EOF
 
-touch "$guest_root/.open-init-populated-v11"
+touch "$guest_root/.open-init-populated-v12"
 printf '%s\n' "guest-root populated; log in as 'open' with an empty password"

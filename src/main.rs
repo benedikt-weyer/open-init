@@ -248,6 +248,9 @@ fn main() -> io::Result<()> {
             eprintln!("open-init: could not configure {path}: {error}");
         }
     }
+    if let Err(error) = setup_user_dir("/run/dbus", 104, 104, 0o755) {
+        eprintln!("open-init: could not configure /run/dbus: {error}");
+    }
     if let Err(error) = start_udev() {
         eprintln!("open-init: could not start or initialize udev: {error}");
     }

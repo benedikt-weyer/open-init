@@ -18,7 +18,8 @@ args = ["--foreground"] # optional
 restart = "always"      # "always", "on-failure", or "never"
 ```
 
-The initramfs includes units for `greetd` and `seatd`. Add further unit files
+The initramfs includes units for `greetd`, `seatd`, and the D-Bus system bus
+(`dbus-daemon --system`). Add further unit files
 under [`guest-root/etc/open-service-manager/services.d`](guest-root/etc/open-service-manager/services.d)
 to include them in the guest.
 
