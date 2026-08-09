@@ -1,3 +1,0 @@
-command = "/usr/bin/su"
-args = ["-s", "/bin/sh", "-c", "XDG_RUNTIME_DIR=/run/user/1001 dbus-run-session -- dbus-send --session --print-reply --dest=org.freedesktop.DBus / org.freedesktop.DBus.ListNames", "open"]
-restart = "never"
