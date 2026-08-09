@@ -23,12 +23,16 @@ if [[ ! -x "$guest_root/usr/bin/niri-session" ]]; then
     exit 1
 fi
 
-cargo build --release --manifest-path "$root_dir/Cargo.toml" >&2
+cargo build --release --manifest-path "$root_dir/Cargo.toml" \
+    --package open-init \
+    --package open-service-manager >&2
 init_binary="$root_dir/target/release/open-init"
+service_manager_binary="$root_dir/target/release/open-service-manager"
 
 printf '%s\n' 'open-init: copying guest runtime closure into initramfs' >&2
 cp -a "$guest_root/." "$staging_dir/"
 install -Dm755 "$init_binary" "$staging_dir/init"
+install -Dm755 "$service_manager_binary" "$staging_dir/usr/bin/open-service-manager"
 install -Dm755 "$root_dir/scripts/launch-niri.sh" \
     "$staging_dir/usr/lib/open-init/launch-niri"
 

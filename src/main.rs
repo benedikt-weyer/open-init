@@ -1,8 +1,8 @@
 //! `open-init` is a deliberately small Linux PID 1.
 //!
-//! It mounts the kernel filesystems, supervises greetd, and reaps orphaned
-//! children. greetd owns login and launches `niri-session` for the configured
-//! user, rather than PID 1 starting a compositor itself.
+//! It mounts the kernel filesystems, starts `open-service-manager`, and reaps
+//! orphaned children. The manager supervises greetd, which owns login and
+//! launches `niri-session` for the configured user.
 
 use std::{
     ffi::CString,
@@ -13,14 +13,13 @@ use std::{
     time::Duration,
 };
 
-const GROOT: &str = "/usr/bin/greetd";
 const PAM_HELPER: &str = "/usr/lib/open-init/unix_chkpwd";
 const PAM_WRAPPER: &str = "/run/wrappers/bin/unix_chkpwd";
 const OPEN_RUNTIME_DIR: &str = "/run/user/1001";
-const SEATD: &str = "/usr/bin/seatd";
 const UDEVADM: &str = "/usr/bin/udevadm";
 const UDEVD: &str = "/usr/bin/udevd";
 const OPENGL_DRIVER: &str = "/usr/lib/open-init/opengl-driver";
+const SERVICE_MANAGER: &str = "/usr/bin/open-service-manager";
 
 fn mount(source: &str, target: &str, fstype: &str, flags: libc::c_ulong) -> io::Result<()> {
     fs::create_dir_all(target)?;
@@ -82,12 +81,6 @@ fn setup_user_dir(path: &str, uid: u32, gid: u32, mode: u32) -> io::Result<()> {
     Ok(())
 }
 
-fn start_seatd() -> io::Result<Child> {
-    Command::new(SEATD)
-        .args(["-u", "root", "-g", "seat", "-l", "error"])
-        .spawn()
-}
-
 fn start_udev() -> io::Result<()> {
     Command::new(UDEVD).arg("--daemon").status()?;
 
@@ -119,9 +112,9 @@ fn reap_children() {
     }
 }
 
-fn start_greetd() -> io::Result<Child> {
-    eprintln!("open-init: starting greetd");
-    Command::new(GROOT).spawn()
+fn start_service_manager() -> io::Result<Child> {
+    eprintln!("open-init: starting service manager");
+    Command::new(SERVICE_MANAGER).spawn()
 }
 
 fn main() -> io::Result<()> {
@@ -150,30 +143,27 @@ fn main() -> io::Result<()> {
     if let Err(error) = start_udev() {
         eprintln!("open-init: could not start or initialize udev: {error}");
     }
-    if let Err(error) = start_seatd() {
-        eprintln!("open-init: could not start seatd: {error}");
-    }
-    let mut greetd: Option<Child> = None;
+    let mut service_manager: Option<Child> = None;
 
     loop {
         reap_children();
 
-        if greetd.as_mut().is_none_or(|child| {
+        if service_manager.as_mut().is_none_or(|child| {
             child
                 .try_wait()
                 .map(|status| status.is_some())
                 .unwrap_or(true)
         }) {
-            if !std::path::Path::new(GROOT).exists() {
+            if !std::path::Path::new(SERVICE_MANAGER).exists() {
                 return Err(io::Error::new(
                     io::ErrorKind::NotFound,
-                    "greetd is missing; install it in guest-root/usr/bin/greetd",
+                    "open-service-manager is missing; install it in guest-root/usr/bin",
                 ));
             }
 
-            match start_greetd() {
-                Ok(child) => greetd = Some(child),
-                Err(error) => eprintln!("open-init: failed to start greetd: {error}"),
+            match start_service_manager() {
+                Ok(child) => service_manager = Some(child),
+                Err(error) => eprintln!("open-init: failed to start service manager: {error}"),
             }
         }
 

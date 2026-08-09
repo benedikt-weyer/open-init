@@ -1,0 +1,3 @@
+command = "/usr/bin/seatd"
+args = ["-u", "root", "-g", "seat", "-l", "error"]
+restart = "always"

@@ -2,8 +2,25 @@
 
 `open-init` is a small Rust PID 1 for a Linux initramfs. It is dynamically
 linked against glibc, mounts the kernel filesystems, reaps orphaned processes,
-and restarts `greetd` if it exits. The greeter launches `niri-session` after a
-successful login.
+and restarts `open-service-manager` if it exits. The service manager
+supervises `greetd`; the greeter launches `niri-session` after a successful
+login.
+
+## Services
+
+`open-service-manager` loads every `*.toml` file in
+`/etc/open-service-manager/services.d` and starts its command directly (it
+does not invoke a shell). A unit file has this form:
+
+```toml
+command = "/usr/bin/example"
+args = ["--foreground"] # optional
+restart = "always"      # "always", "on-failure", or "never"
+```
+
+The initramfs includes units for `greetd` and `seatd`. Add further unit files
+under [`guest-root/etc/open-service-manager/services.d`](guest-root/etc/open-service-manager/services.d)
+to include them in the guest.
 
 ## Run in QEMU
 

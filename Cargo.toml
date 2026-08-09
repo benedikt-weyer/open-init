@@ -1,3 +1,7 @@
+[workspace]
+members = [".", "open-service-manager"]
+resolver = "3"
+
 [package]
 name = "open-init"
 version = "0.1.0"
