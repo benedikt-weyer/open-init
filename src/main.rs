@@ -1,8 +1,8 @@
 //! `open-init` is a deliberately small Linux PID 1.
 //!
-//! It mounts the kernel filesystems, starts `open-service-manager`, and reaps
-//! orphaned children. The manager supervises greetd, which owns login and
-//! launches `niri-session` for the configured user.
+//! It mounts the kernel filesystems, brings up networking, starts
+//! `open-service-manager`, and reaps orphaned children. The manager supervises
+//! greetd, which owns login and launches `niri-session` for the configured user.
 
 use std::{
     ffi::CString,
@@ -21,6 +21,9 @@ const UDEVADM: &str = "/usr/bin/udevadm";
 const UDEVD: &str = "/usr/bin/udevd";
 const OPENGL_DRIVER: &str = "/usr/lib/open-init/opengl-driver";
 const SERVICE_MANAGER: &str = "/usr/bin/open-service-manager";
+const IP: &str = "/usr/bin/ip";
+const GUEST_ADDRESS: &str = "10.0.2.15/24";
+const GUEST_GATEWAY: &str = "10.0.2.2";
 const SHUTDOWN_NONE: u8 = 0;
 const SHUTDOWN_POWEROFF: u8 = 1;
 const SHUTDOWN_REBOOT: u8 = 2;
@@ -108,6 +111,47 @@ fn start_udev() -> io::Result<()> {
             return Err(io::Error::other(format!(
                 "udevadm {} exited with {status}",
                 args[0]
+            )));
+        }
+    }
+
+    Ok(())
+}
+
+fn find_ethernet_interface() -> io::Result<String> {
+    for entry in fs::read_dir("/sys/class/net")? {
+        let name = entry?.file_name().to_string_lossy().into_owned();
+        if name != "lo" {
+            return Ok(name);
+        }
+    }
+    Err(io::Error::new(
+        io::ErrorKind::NotFound,
+        "no ethernet interface found under /sys/class/net",
+    ))
+}
+
+fn configure_network() -> io::Result<()> {
+    let interface = find_ethernet_interface()?;
+
+    for args in [
+        &["link", "set", "lo", "up"][..],
+        &["addr", "add", GUEST_ADDRESS, "dev", &interface][..],
+        &["link", "set", &interface, "up"][..],
+        &[
+            "route",
+            "add",
+            "default",
+            "via",
+            GUEST_GATEWAY,
+            "dev",
+            &interface,
+        ][..],
+    ] {
+        let status = Command::new(IP).args(args).status()?;
+        if !status.success() {
+            return Err(io::Error::other(format!(
+                "ip {args:?} exited with {status}"
             )));
         }
     }
@@ -206,6 +250,9 @@ fn main() -> io::Result<()> {
     }
     if let Err(error) = start_udev() {
         eprintln!("open-init: could not start or initialize udev: {error}");
+    }
+    if let Err(error) = configure_network() {
+        eprintln!("open-init: could not configure network: {error}");
     }
     let mut service_manager: Option<Child> = None;
 

@@ -2,6 +2,7 @@
 
 use serde::Deserialize;
 use std::{
+    collections::HashMap,
     fs, io,
     path::{Path, PathBuf},
     process::{Child, Command},
@@ -24,6 +25,8 @@ struct UnitFile {
     #[serde(default)]
     args: Vec<String>,
     restart: RestartPolicy,
+    #[serde(default)]
+    env: HashMap<String, String>,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq)]
@@ -53,6 +56,7 @@ impl Service {
         eprintln!("open-service-manager: starting {}", self.name);
         match Command::new(&self.unit.command)
             .args(&self.unit.args)
+            .envs(&self.unit.env)
             .spawn()
         {
             Ok(child) => self.child = Some(child),

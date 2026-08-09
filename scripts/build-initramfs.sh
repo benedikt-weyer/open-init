@@ -51,7 +51,11 @@ ldd "$init_binary" | awk '
 ' | while IFS= read -r library; do
     [[ -f "$library" ]] || continue
     [[ -e "$staging_dir$library" ]] || install -Dm755 "$library" "$staging_dir$library"
-    chmod 755 "$staging_dir$library"
+    # Nix packages sometimes ship libraries as symlinks into other store
+    # paths (e.g. gcc's multilib "-lib" wrapper outputs). chmod follows
+    # symlinks, so chmod'ing one here would reach through to the host's
+    # real, read-only-mounted /nix/store instead of the staged copy.
+    [[ -L "$staging_dir$library" ]] || chmod 755 "$staging_dir$library"
 done
 
 # pam_unix is configured to invoke /run/wrappers/bin/unix_chkpwd. The /run

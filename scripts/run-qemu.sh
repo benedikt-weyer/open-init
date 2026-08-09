@@ -17,4 +17,6 @@ exec qemu-system-x86_64 \
     -device virtio-vga-gl \
     -device virtio-keyboard-pci \
     -device virtio-tablet-pci \
+    -netdev user,id=net0 \
+    -device virtio-net-pci,netdev=net0 \
     -display gtk,gl=on,grab-on-hover=on
