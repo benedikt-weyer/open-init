@@ -20,11 +20,13 @@ cargo build --release --manifest-path "$root_dir/Cargo.toml" >&2
 init_binary="$root_dir/target/release/open-init"
 
 if [[ -d "$staging_dir" ]]; then
+    printf '%s\n' 'open-init: removing previous initramfs staging tree' >&2
     chmod -R u+w "$staging_dir"
 fi
 rm -rf "$staging_dir"
 mkdir -p "$staging_dir"
-cp -a "$guest_root/." "$staging_dir/"
+printf '%s\n' 'open-init: copying guest runtime closure into initramfs' >&2
+cp -a --no-preserve=mode "$guest_root/." "$staging_dir/"
 install -Dm755 "$init_binary" "$staging_dir/init"
 
 # PID 1 is intentionally dynamically linked to glibc. Copy its interpreter
@@ -38,9 +40,10 @@ ldd "$init_binary" | awk '
 done
 
 mkdir -p "$staging_dir"/{proc,sys,dev/pts,run,tmp}
+printf '%s\n' 'open-init: creating compressed initramfs archive' >&2
 (
     cd "$staging_dir"
-    find . -print0 | cpio --null --quiet -o --format=newc | gzip -9
+    find . -print0 | cpio --null --quiet -o --format=newc | gzip -1
 ) > "$archive"
 
 printf '%s\n' "$archive"
