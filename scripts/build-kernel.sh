@@ -61,7 +61,9 @@ make -C "$linux_dir" O="$build_dir" x86_64_defconfig >&2
     --enable DRM \
     --enable DRM_VIRTIO_GPU \
     --enable DRM_BOCHS \
-    --enable DRM_QXL >&2
+    --enable DRM_QXL \
+    --disable STACK_VALIDATION \
+    --disable UNWINDER_ORC >&2
 make -C "$linux_dir" O="$build_dir" olddefconfig >&2
 make -C "$linux_dir" O="$build_dir" -j"$(nproc)" bzImage >&2
 
