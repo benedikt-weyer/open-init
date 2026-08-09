@@ -18,7 +18,7 @@ if [[ "${FORCE_POPULATE:-0}" != "1" &&
     -x "$guest_root/usr/bin/sudo" &&
     -x "$guest_root/usr/bin/su" &&
     -x "$guest_root/bin/sh" &&
-    -f "$guest_root/.open-init-populated-v8" &&
+    -f "$guest_root/.open-init-populated-v9" &&
     -d "$guest_root/nix/store" ]]; then
     printf '%s\n' 'guest-root already populated'
     exit 0
@@ -89,6 +89,10 @@ ln -sfn /usr/lib/open-init/sudo "$guest_root/usr/bin/sudo"
 ln -sfn "$eudev/var/lib/udev/rules.d" "$guest_root/etc/udev/rules.d"
 ln -sfn "$cursor_theme/share/icons" "$guest_root/usr/share/icons"
 
+mkdir -p "$guest_root/usr/share/applications"
+ln -sfn "$alacritty/share/applications/Alacritty.desktop" \
+    "$guest_root/usr/share/applications/Alacritty.desktop"
+
 cat > "$guest_root/etc/passwd" <<'EOF'
 root:x:0:0:root:/root:/bin/sh
 greeter:x:1000:1000:Greeter:/var/lib/greetd:/bin/sh
@@ -156,5 +160,5 @@ binds {
 }
 EOF
 
-touch "$guest_root/.open-init-populated-v8"
+touch "$guest_root/.open-init-populated-v9"
 printf '%s\n' "guest-root populated; log in as 'open' with an empty password"
