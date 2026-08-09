@@ -19,6 +19,7 @@ if ! command -v flex >/dev/null || ! command -v bison >/dev/null || ! command -v
         nixpkgs#flex \
         nixpkgs#openssl \
         nixpkgs#elfutils \
+        nixpkgs#elfutils.dev \
         nixpkgs#pahole \
         nixpkgs#perl \
         nixpkgs#gcc \
